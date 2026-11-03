@@ -31,6 +31,9 @@ inputs:
   fail-regex:
     description: Fail regex evaluated against guest console output.
     required: false
+  console-input:
+    description: Console input entries as a JSON string, sent to nodes at declared virtual times.
+    required: false
   out-dir:
     description: Directory to write downloaded artifacts and reports.
     required: false
@@ -71,6 +74,7 @@ runs:
         INPUT_TIMEOUT-VTIME-MS: ${{ inputs.timeout-vtime-ms }}
         INPUT_PASS-REGEX: ${{ inputs.pass-regex }}
         INPUT_FAIL-REGEX: ${{ inputs.fail-regex }}
+        INPUT_CONSOLE-INPUT: ${{ inputs.console-input }}
         INPUT_OUT-DIR: ${{ inputs.out-dir }}
     - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       if: ${{ always() && inputs.world != '' }}

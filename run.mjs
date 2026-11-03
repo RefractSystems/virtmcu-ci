@@ -252,6 +252,26 @@ export async function runCase({
   const timeoutVtimeMs = Number(env["INPUT_TIMEOUT-VTIME-MS"] || env.VIRTMCU_TIMEOUT_VTIME_MS || 60000);
   const passRegex = env["INPUT_PASS-REGEX"] || env.VIRTMCU_PASS_REGEX || undefined;
   const failRegex = env["INPUT_FAIL-REGEX"] || env.VIRTMCU_FAIL_REGEX || undefined;
+  const consoleInputRaw = env["INPUT_CONSOLE-INPUT"] || env.VIRTMCU_CONSOLE_INPUT || undefined;
+  let consoleInput = undefined;
+  if (consoleInputRaw !== undefined && consoleInputRaw !== "") {
+    if (typeof consoleInputRaw === "string") {
+      let parsed;
+      try {
+        parsed = JSON.parse(consoleInputRaw.trim());
+      } catch (e) {
+        throw new Error(`invalid console_input JSON: ${e.message}`);
+      }
+      if (!Array.isArray(parsed)) {
+        throw new Error("console_input must be a JSON array of entries");
+      }
+      consoleInput = parsed;
+    } else if (Array.isArray(consoleInputRaw)) {
+      consoleInput = consoleInputRaw;
+    } else {
+      throw new Error("console_input must be a JSON array of entries");
+    }
+  }
   const outDir = env["INPUT_OUT-DIR"] || env.VIRTMCU_OUT_DIR || "out";
 
   fs.mkdirSync(outDir, { recursive: true });
@@ -262,6 +282,7 @@ export async function runCase({
     timeout_vtime_ms: timeoutVtimeMs,
     ...(passRegex ? { pass_regex: passRegex } : {}),
     ...(failRegex ? { fail_regex: failRegex } : {}),
+    ...(consoleInput ? { console_input: consoleInput } : {}),
   };
 
   const runId = await submitRun({ api, accessToken, body, fetchImpl });
