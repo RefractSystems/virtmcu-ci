@@ -254,14 +254,22 @@ export async function runCase({
   const failRegex = env["INPUT_FAIL-REGEX"] || env.VIRTMCU_FAIL_REGEX || undefined;
   const consoleInputRaw = env["INPUT_CONSOLE-INPUT"] || env.VIRTMCU_CONSOLE_INPUT || undefined;
   let consoleInput = undefined;
-  if (consoleInputRaw) {
+  if (consoleInputRaw !== undefined && consoleInputRaw !== "") {
     if (typeof consoleInputRaw === "string") {
-      const trimmed = consoleInputRaw.trim();
-      if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-        consoleInput = JSON.parse(trimmed);
+      let parsed;
+      try {
+        parsed = JSON.parse(consoleInputRaw.trim());
+      } catch (e) {
+        throw new Error(`invalid console_input JSON: ${e.message}`);
       }
+      if (!Array.isArray(parsed)) {
+        throw new Error("console_input must be a JSON array of entries");
+      }
+      consoleInput = parsed;
     } else if (Array.isArray(consoleInputRaw)) {
       consoleInput = consoleInputRaw;
+    } else {
+      throw new Error("console_input must be a JSON array of entries");
     }
   }
   const outDir = env["INPUT_OUT-DIR"] || env.VIRTMCU_OUT_DIR || "out";
