@@ -1,7 +1,18 @@
-// The keyless CI exchange as pure functions: fetch and the output sink are injected, so the tests
-// drive every branch with no network and no real GitHub token. The wire literals come from the one
-// shared module the server handler also imports, never copied here.
-import { buildExchangeBody, CI_AUDIENCE_PREFIX, JWT_TOKEN_TYPE } from "../../web/lib/ciTokenExchangeWire.mjs";
+// The RFC 8693 wire facts of keyless CI exchange, defined once for the GitHub Action client
+// and the server grant handler. Pure: no external imports, so a standalone runner can load it anywhere.
+export const TOKEN_EXCHANGE_GRANT = "urn:ietf:params:oauth:grant-type:token-exchange";
+export const JWT_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:jwt";
+export const ACCESS_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:access_token";
+export const VIRTMCU_CI_CLIENT_ID = "virtmcu-ci";
+export const CI_AUDIENCE_PREFIX = "virtmcu:ci:";
+
+export const buildExchangeBody = ({ subjectToken, resource }) => ({
+  grant_type: TOKEN_EXCHANGE_GRANT,
+  subject_token_type: JWT_TOKEN_TYPE,
+  client_id: VIRTMCU_CI_CLIENT_ID,
+  resource,
+  subject_token: subjectToken,
+});
 
 const FORM = "application/x-www-form-urlencoded";
 // A control character in a value written to GITHUB_OUTPUT could start a new output key.
@@ -29,8 +40,8 @@ export async function exchangeOidcForAccessToken({ fetchImpl, tokenEndpoint, oid
     throw new Error(`token exchange rejected with HTTP ${res.status}: ${reason}`);
   }
   // RFC 8693 requires issued_token_type in the response; its absence is a protocol violation.
-  if (json.issued_token_type !== JWT_TOKEN_TYPE) {
-    throw new Error(`token exchange returned issued_token_type ${json.issued_token_type}, expected ${JWT_TOKEN_TYPE}`);
+  if (json.issued_token_type !== ACCESS_TOKEN_TYPE && json.issued_token_type !== JWT_TOKEN_TYPE) {
+    throw new Error(`token exchange returned issued_token_type ${json.issued_token_type}, expected ${ACCESS_TOKEN_TYPE}`);
   }
   const accessToken = json.access_token;
   if (typeof accessToken !== "string" || accessToken.length === 0) {
