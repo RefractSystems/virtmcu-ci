@@ -240,6 +240,13 @@ export async function runCase({
   const scenarioInput = env.INPUT_SCENARIO || env.VIRTMCU_SCENARIO;
   let scenarioData = null;
   if (scenarioInput) {
+    const conflicting = [];
+    if (env.INPUT_WORLD || env.VIRTMCU_WORLD) conflicting.push("world");
+    if (env.INPUT_FIRMWARE || env.VIRTMCU_FIRMWARE) conflicting.push("firmware");
+    if (env["INPUT_CONSOLE-INPUT"] || env.VIRTMCU_CONSOLE_INPUT) conflicting.push("console-input");
+    if (conflicting.length > 0) {
+      throw new Error(`Conflicting inputs: cannot specify both 'scenario' and direct run parameters (${conflicting.join(", ")})`);
+    }
     scenarioData = loadScenarioFile(scenarioInput);
   }
 
