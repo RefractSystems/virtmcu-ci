@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { loadScenarioFile } from "./scenario.mjs";
 
 export function escapeXml(s) {
   return String(s)
@@ -236,33 +237,49 @@ export async function runCase({
   pollIntervalMs = 1000,
   pollTimeoutMs = 300000,
 }) {
+  const scenarioInput = env.INPUT_SCENARIO || env.VIRTMCU_SCENARIO;
+  let scenarioData = null;
+  if (scenarioInput) {
+    scenarioData = loadScenarioFile(scenarioInput);
+  }
+
   const api = env.INPUT_API || env.VIRTMCU_API;
   if (!api) throw new Error("INPUT_API or VIRTMCU_API is required");
 
   const accessToken = env["INPUT_ACCESS-TOKEN"] || env.VIRTMCU_ACCESS_TOKEN;
   if (!accessToken) throw new Error("INPUT_ACCESS-TOKEN or VIRTMCU_ACCESS_TOKEN is required");
 
-  const world = env.INPUT_WORLD || env.VIRTMCU_WORLD;
+  const world = env.INPUT_WORLD || env.VIRTMCU_WORLD || scenarioData?.world;
   if (!world) throw new Error("INPUT_WORLD or VIRTMCU_WORLD is required");
 
-  const firmwareInput = env.INPUT_FIRMWARE || env.VIRTMCU_FIRMWARE;
+  const firmwareInput = env.INPUT_FIRMWARE || env.VIRTMCU_FIRMWARE || scenarioData?.firmware;
   const firmwareRoot = env.VIRTMCU_FIRMWARE_ROOT || process.cwd();
   const firmwareMap = parseFirmware(firmwareInput, firmwareRoot);
 
-  const timeoutVtimeMs = Number(env["INPUT_TIMEOUT-VTIME-MS"] || env.VIRTMCU_TIMEOUT_VTIME_MS || 60000);
-  const passRegex = env["INPUT_PASS-REGEX"] || env.VIRTMCU_PASS_REGEX || undefined;
-  const failRegex = env["INPUT_FAIL-REGEX"] || env.VIRTMCU_FAIL_REGEX || undefined;
+  const timeoutVtimeMs = Number(env["INPUT_TIMEOUT-VTIME-MS"] || env.VIRTMCU_TIMEOUT_VTIME_MS || scenarioData?.timeout_vtime_ms || 60000);
+  const passRegex = env["INPUT_PASS-REGEX"] || env.VIRTMCU_PASS_REGEX || scenarioData?.pass_regex || undefined;
+  const failRegex = env["INPUT_FAIL-REGEX"] || env.VIRTMCU_FAIL_REGEX || scenarioData?.fail_regex || undefined;
   const consoleInputRaw = env["INPUT_CONSOLE-INPUT"] || env.VIRTMCU_CONSOLE_INPUT || undefined;
   let consoleInput = undefined;
-  if (consoleInputRaw) {
+  if (consoleInputRaw !== undefined && consoleInputRaw !== "") {
     if (typeof consoleInputRaw === "string") {
-      const trimmed = consoleInputRaw.trim();
-      if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-        consoleInput = JSON.parse(trimmed);
+      let parsed;
+      try {
+        parsed = JSON.parse(consoleInputRaw.trim());
+      } catch (e) {
+        throw new Error(`invalid console_input JSON: ${e.message}`);
       }
+      if (!Array.isArray(parsed)) {
+        throw new Error("console_input must be a JSON array of entries");
+      }
+      consoleInput = parsed;
     } else if (Array.isArray(consoleInputRaw)) {
       consoleInput = consoleInputRaw;
+    } else {
+      throw new Error("console_input must be a JSON array of entries");
     }
+  } else if (scenarioData?.console_input) {
+    consoleInput = scenarioData.console_input;
   }
   const outDir = env["INPUT_OUT-DIR"] || env.VIRTMCU_OUT_DIR || "out";
 
