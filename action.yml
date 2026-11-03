@@ -1,0 +1,79 @@
+name: virtmcu CI
+description: Exchanges this job's GitHub OIDC token and runs simulation test cases on virtmcu CI.
+inputs:
+  registration-id:
+    description: The CI registration id; the OIDC audience is virtmcu:ci:<registration-id>.
+    required: false
+  token-endpoint:
+    description: The virtmcu token endpoint that performs the exchange.
+    required: false
+  resource:
+    description: The virtmcu resource the access token is requested for.
+    required: false
+  api:
+    description: The virtmcu API base URL.
+    required: false
+  access-token:
+    description: Virtmcu access token (if already exchanged).
+    required: false
+  world:
+    description: Registered catalog world identifier.
+    required: false
+  firmware:
+    description: Firmware ELF path(s), as a file path or node-to-path JSON/YAML mapping.
+    required: false
+  timeout-vtime-ms:
+    description: Simulation timeout in virtual time milliseconds.
+    required: false
+  pass-regex:
+    description: Pass regex evaluated against guest console output.
+    required: false
+  fail-regex:
+    description: Fail regex evaluated against guest console output.
+    required: false
+  out-dir:
+    description: Directory to write downloaded artifacts and reports.
+    required: false
+    default: out
+outputs:
+  access-token:
+    description: The virtmcu access token. Masked in logs.
+    value: ${{ steps.exchange.outputs.access-token }}
+  run-id:
+    description: The simulation run ID.
+    value: ${{ steps.run.outputs.run-id }}
+  outcome:
+    description: The outcome of the simulation run.
+    value: ${{ steps.run.outputs.outcome }}
+  exit-code:
+    description: The exit code of the simulation run.
+    value: ${{ steps.run.outputs.exit-code }}
+runs:
+  using: composite
+  steps:
+    - id: exchange
+      if: ${{ inputs.registration-id != '' }}
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/index.mjs"
+      env:
+        INPUT_REGISTRATION-ID: ${{ inputs.registration-id }}
+        INPUT_TOKEN-ENDPOINT: ${{ inputs.token-endpoint }}
+        INPUT_RESOURCE: ${{ inputs.resource }}
+    - id: run
+      if: ${{ inputs.world != '' }}
+      shell: bash
+      run: node "$GITHUB_ACTION_PATH/run.mjs"
+      env:
+        INPUT_API: ${{ inputs.api }}
+        INPUT_ACCESS-TOKEN: ${{ inputs.access-token || steps.exchange.outputs.access-token }}
+        INPUT_WORLD: ${{ inputs.world }}
+        INPUT_FIRMWARE: ${{ inputs.firmware }}
+        INPUT_TIMEOUT-VTIME-MS: ${{ inputs.timeout-vtime-ms }}
+        INPUT_PASS-REGEX: ${{ inputs.pass-regex }}
+        INPUT_FAIL-REGEX: ${{ inputs.fail-regex }}
+        INPUT_OUT-DIR: ${{ inputs.out-dir }}
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      if: ${{ always() && inputs.world != '' }}
+      with:
+        name: ${{ inputs.world }}
+        path: ${{ inputs.out-dir || 'out' }}/
